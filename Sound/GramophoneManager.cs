@@ -1,5 +1,3 @@
-using System.Collections;
-using UnityEngine.Networking;
 using UnityEngine;
 using HarmonyLib;
 using DiskCardGame;
@@ -12,6 +10,9 @@ using System.Linq;
 
 namespace GramophoneAPI.Sound;
 
+/// <summary>
+/// A helper class for adding tracks to the Gramophone in Leshy's cabin.
+/// </summary>
 [HarmonyPatch]
 public static class GramophoneManager
 {
@@ -25,21 +26,23 @@ public static class GramophoneManager
     internal static List<AudioClip> NewGramophoneTracks = new List<AudioClip>();
 
     internal static List<TrackInfo> TracksToAdd = new List<TrackInfo>();
+
     internal static List<string> AlreadyAddedTracks = new List<string>();
     private static bool noNewTracks => NewGramophoneTracks.Count == 0;
     private static bool isLeshyCabin => SceneManager.GetActiveScene().name == "Part1_Cabin";
 
-    public class TrackInfo
+    internal class TrackInfo
     {
         public string FilePath, Guid;
-        public bool CanSkip;
-        public string AudioClipName => Guid + TrackName;
+        public float Volume;
+        // public bool CanSkip; // Unused at the time! 
+        public string AudioClipName => $"{Guid}_{TrackName}";
         public string TrackName => Path.GetFileName(FilePath);
-        public TrackInfo(string guid, string filePath, bool canSkip = false)
+        public TrackInfo(string guid, string filePath, float volume = 1f)
         {
             Guid = guid ?? string.Empty;
             FilePath = filePath;
-            CanSkip = canSkip;
+            Volume = Mathf.Clamp(volume, 0, 1f);
         }
     }
 
@@ -49,15 +52,22 @@ public static class GramophoneManager
     private static void ErrorLog(string message) =>
         Plugin.myLogger.LogError($"GramophoneManager: {message}");
 
-    public static void AddTrack(string guid, string filename)
+    /// <summary>
+    /// A helper for adding a music track to the Gramophone in Leshy's cabin.
+    /// </summary>
+    /// <param name="guid">Your plugin's GUID.</param>
+    /// <param name="path">The name of the audio file.</param>
+    /// <param name="volume">The volume of your track, from 0 to 1.</param>
+    public static void AddTrack(string guid, string path, float volume = 1f)
     {
-        string path = SoundManager.GetAudioFile(filename);
-        if (path.IsNullOrWhiteSpace())
+        string filePath = Path.IsPathRooted(path) ? path : SoundManager.GetAudioPath(path);
+
+        if (filePath.IsNullOrWhiteSpace())
         {
-            ErrorLog($"Couldn't load audio track: File \'{filename}\' not found!");
+            ErrorLog($"Couldn't load audio track: File \'{filePath ?? "(null)"}\' not found!");
             return;
         }
-        TrackInfo trackInfo = new TrackInfo(guid, path);
+        TrackInfo trackInfo = new TrackInfo(guid, filePath, volume);
         TracksToAdd.Add(trackInfo);
     }
 
@@ -75,18 +85,15 @@ public static class GramophoneManager
 
         if (newTracks.Count == 0) return;
 
-        List<AudioClip> audioTracks = newTracks
-            .Select(x => SoundManager.LoadAudioClip(x))
-            .ToList();
-
-        foreach (AudioClip track in audioTracks)
+        foreach (TrackInfo info in newTracks)
         {
+            AudioClip track = SoundManager.LoadAudioClip(info);
             if (track == null) continue;
             if (!NewGramophoneTracks.Contains(track))
             {
                 NewGramophoneTracks.Add(track);
-                GramophoneInteractable.TRACK_VOLUMES.Add(1f);
                 GramophoneInteractable.TRACK_IDS.Add(track.name);
+                GramophoneInteractable.TRACK_VOLUMES.Add(info.Volume);
 
                 AlreadyAddedTracks.Add(track.name);
             }

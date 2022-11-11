@@ -1,6 +1,10 @@
 using BepInEx;
 using HarmonyLib;
+using System.Linq;
 using BepInEx.Logging;
+using BepInEx.Bootstrap;
+using EasyFeedback.APIs;
+using System.Collections.Generic;
 
 namespace GramophoneAPI
 {
@@ -11,7 +15,7 @@ namespace GramophoneAPI
     {   
         public const string PluginGuid = "kel.inscryption.gramophoneAPI";
         public const string PluginName = "GramophoneAPI";
-        public const string PluginVersion = "1.0.0";
+        public const string PluginVersion = "1.1.0";
 
         internal static ManualLogSource myLogger; // Log source.
         private void Awake() {
